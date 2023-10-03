@@ -28,7 +28,7 @@ with app.app_context():
 def index():
     return render_template('index.html')
 
-# Create a new book
+
 # Create a new book
 @app.route('/books', methods=["POST"])
 def create_book():

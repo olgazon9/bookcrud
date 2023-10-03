@@ -3,68 +3,203 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Library CRUD</title>
+    <title>Book Library</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 </head>
 <body>
-    <h1>Library CRUD</h1>
+    <h1>Book Library</h1>
 
-    <!-- Button to show "Get Books" and "Add Book" functionality -->
-    <button onclick="showBooks()">Show Books</button>
-    <button onclick="showAddBookForm()">Add Book</button>
+    <!-- Button to open the Add Book form -->
+    <button id="openAddBookForm">Add Book</button>
 
-    <!-- Form for adding a new book (initially hidden) -->
-    
-    <form id="addBookForm" style="display: none;">
-        <label for="title">Title:</label><input type="text" id="title" required><br>
-        <label for="author">Author:</label><input type="text" id="author" required><br>
-        <label for="year_published">Year Published:</label><input type="number" id="year_published" required><br>
-        <label for="genre">Genre:</label><input type="text" id="genre" required><br>
-        <button type="submit">Add Book</button>
-    </form>
+    <!-- Add Book Form (hidden by default) -->
+    <div id="addBookForm" style="display: none;">
+        <h2>Add a New Book</h2>
+        <form id="bookForm">
+            <label for="title">Title:</label>
+            <input type="text" id="title" required><br><br>
+            <label for="author">Author:</label>
+            <input type="text" id="author" required><br><br>
+            <label for="year_published">Year Published:</label>
+            <input type="number" id="year_published" required><br><br>
+            <label for="genre">Genre:</label>
+            <input type="text" id="genre" required><br><br>
+            <input type="submit" value="Add">
+        </form>
+    </div>
 
-    <!-- Display books (initially hidden) -->
-    
-    <ul id="bookList" style="display: none;"></ul>
+    <!-- Button to show all books -->
+    <button id="showAllBooks">Show All Books</button>
 
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- Display Books (hidden by default) -->
+    <div id="bookList" style="display: none;">
+        
+        <ul id="bookListItems"></ul>
+    </div>
+
     <script>
-        const showBooks = async () => {
-            const bookList = document.getElementById('bookList');
+        // Function to show/hide the Add Book form
+        document.getElementById('openAddBookForm').addEventListener('click', () => {
             const addBookForm = document.getElementById('addBookForm');
+            addBookForm.style.display = addBookForm.style.display === 'none' ? 'block' : 'none';
+        });
 
-            if (bookList.style.display === 'none') {
-                try {
-                    const { data } = await axios.get('/books');
-                    bookList.innerHTML = data.map(b => `<li>${b.title} by ${b.author}, ${b.year_published}, Genre: ${b.genre}
-                        <button onclick="editBook(${b.id})">Edit</button>
-                        <button onclick="deleteBook(${b.id})">Delete</button></li>`).join('');
-                    bookList.style.display = 'block';
-                    addBookForm.style.display = 'none';
-                } catch (error) {
-                    console.error('Error fetching books:', error);
-                }
-            } else {
-                bookList.style.display = 'none';
-            }
-        };
-
-        const showAddBookForm = () => {
-            const addBookForm = document.getElementById('addBookForm');
+        // Function to show/hide the list of books
+        document.getElementById('showAllBooks').addEventListener('click', () => {
             const bookList = document.getElementById('bookList');
+            bookList.style.display = bookList.style.display === 'none' ? 'block' : 'none';
 
-            if (addBookForm.style.display === 'none') {
-                addBookForm.style.display = 'block';
-                bookList.style.display = 'none';
-            } else {
-                addBookForm.style.display = 'none';
+            // Load and display books if the list is visible
+            if (bookList.style.display === 'block') {
+                getBooks();
             }
-        };
+        });
 
-        // Rest of your code (editBook, deleteBook, form submission, etc.)
+        // Function to add a new book
+        document.getElementById('bookForm').addEventListener('submit', (event) => {
+            event.preventDefault();
 
-        // Initial state: Show the "Show Books" and "Add Book" buttons only
-        showBooks();
-        showAddBookForm();
+            const title = document.getElementById('title').value;
+            const author = document.getElementById('author').value;
+            const year_published = document.getElementById('year_published').value;
+            const genre = document.getElementById('genre').value;
+
+            // Send a POST request to add the book
+            axios.post('/books', {
+                title,
+                author,
+                year_published,
+                genre
+            })
+            .then((response) => {
+                // Book added successfully, clear the form
+                document.getElementById('title').value = '';
+                document.getElementById('author').value = '';
+                document.getElementById('year_published').value = '';
+                document.getElementById('genre').value = '';
+                // Refresh the book list
+                getBooks();
+            })
+            .catch((error) => {
+                console.error(error);
+            });
+        });
+
+        // Function to get and display all books
+        function getBooks() {
+            axios.get('/books')
+            .then((response) => {
+                const bookListItems = document.getElementById('bookListItems');
+                bookListItems.innerHTML = '';
+                const books = response.data;
+                books.forEach((book) => {
+                    const listItem = document.createElement('li');
+                    listItem.innerHTML = `${book.title} by ${book.author} (${book.year_published}) - Genre: ${book.genre}`;
+                    
+                    // Add delete button
+                    const deleteButton = document.createElement('button');
+                    deleteButton.innerText = 'Delete';
+                    deleteButton.addEventListener('click', () => {
+                        // Call a function to delete the book by ID
+                        deleteBook(book.id);
+                    });
+
+                    // Add edit button
+                    const editButton = document.createElement('button');
+                    editButton.innerText = 'Edit';
+                    editButton.addEventListener('click', () => {
+                        // Call a function to open the edit form
+                        openEditForm(book);
+                    });
+
+                    listItem.appendChild(deleteButton);
+                    listItem.appendChild(editButton);
+                    bookListItems.appendChild(listItem);
+                });
+            })
+            .catch((error) => {
+                console.error(error);
+            });
+        }
+
+        // Function to delete a book by ID
+        function deleteBook(bookId) {
+            axios.delete(`/books/${bookId}`)
+            .then(() => {
+                // Refresh the book list
+                getBooks();
+            })
+            .catch((error) => {
+                console.error(error);
+            });
+        }
+
+        // Function to open the edit form with book details
+        function openEditForm(book) {
+            const editForm = document.createElement('div');
+            editForm.innerHTML = `
+                <h2>Edit Book</h2>
+                <form id="editBookForm">
+                    <input type="hidden" id="editBookId" value="${book.id}">
+                    <label for="editTitle">Title:</label>
+                    <input type="text" id="editTitle" value="${book.title}" required><br><br>
+                    <label for="editAuthor">Author:</label>
+                    <input type="text" id="editAuthor" value="${book.author}" required><br><br>
+                    <label for="editYearPublished">Year Published:</label>
+                    <input type="number" id="editYearPublished" value="${book.year_published}" required><br><br>
+                    <label for="editGenre">Genre:</label>
+                    <input type="text" id="editGenre" value="${book.genre}" required><br><br>
+                    <input type="submit" value="Save">
+                    <button id="cancelEdit">Cancel</button>
+                </form>
+            `;
+
+            // Append the edit form to the book list
+            const bookList = document.getElementById('bookList');
+            bookList.appendChild(editForm);
+
+            // Add event listeners for the edit form
+            const editBookForm = document.getElementById('editBookForm');
+            editBookForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+                // Call a function to update the book details
+                updateBook();
+            });
+
+            const cancelEditButton = document.getElementById('cancelEdit');
+            cancelEditButton.addEventListener('click', () => {
+                // Remove the edit form when cancel is clicked
+                bookList.removeChild(editForm);
+            });
+        }
+
+        // Function to update the book details
+        function updateBook() {
+            const bookId = document.getElementById('editBookId').value;
+            const title = document.getElementById('editTitle').value;
+            const author = document.getElementById('editAuthor').value;
+            const year_published = document.getElementById('editYearPublished').value;
+            const genre = document.getElementById('editGenre').value;
+
+            // Send a PUT request to update the book
+            axios.put(`/books/${bookId}`, {
+                title,
+                author,
+                year_published,
+                genre
+            })
+            .then(() => {
+                // Remove the edit form
+                const bookList = document.getElementById('bookList');
+                const editForm = document.getElementById('editBookForm');
+                bookList.removeChild(editForm);
+                // Refresh the book list
+                getBooks();
+            })
+            .catch((error) => {
+                console.error(error);
+            });
+        }
     </script>
 </body>
 </html>
